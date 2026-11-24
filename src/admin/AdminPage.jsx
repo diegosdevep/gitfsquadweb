@@ -15,6 +15,7 @@ const TABS = [
 const PRIORIDAD = { low: "Me gustaría", medium: "Lo quiero", wantALot: "Lo quiero mucho", high: "¡Lo necesito!" };
 const ESTADO_RESERVA = { reserved: "Reservado", purchased: "Comprado", released: "Liberado", delivered: "Entregado" };
 
+const cap = (t) => (t ?? "").replace(/(^|\s)(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
 const dos = (n) => String(n).padStart(2, "0");
 const fecha = (ms) => {
   if (!ms) return "—";
@@ -110,44 +111,164 @@ function Resumen({ data }) {
   );
 }
 
+const PROVEEDOR = { "google.com": "Google", "apple.com": "Apple", password: "Email" };
+const DIA = 86400000;
+
+const hace = (ms, ahora) => {
+  if (!ms) return "Nunca";
+  const dias = Math.floor((ahora - ms) / DIA);
+  if (dias < 1) return "Hoy";
+  if (dias === 1) return "Ayer";
+  if (dias < 30) return `Hace ${dias} días`;
+  return fecha(ms);
+};
+
+const ORDEN_USUARIOS = {
+  ingreso: (a, b) => (b.lastSignIn ?? 0) - (a.lastSignIn ?? 0),
+  alta: (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0),
+  items: (a, b) => b.itemCount - a.itemCount,
+  nombre: (a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email),
+};
+
+function DetalleUsuario({ u, data, onClose }) {
+  const grupos = data.groups.filter((g) => g.members.some((m) => m.id === u.id)).sort((a, b) => b.itemCount - a.itemCount);
+  const nombre = cap(u.displayName) || u.email;
+  return (
+    <Modal
+      titulo={nombre}
+      sub={u.username ? `@${u.username}` : u.email}
+      icono={<Foto m={{ photoURL: u.photoURL, name: nombre }} grande />}
+      onClose={onClose}
+    >
+      <h4>Cuenta</h4>
+      <dl className="ap-ajustes">
+        <div>
+          <dt>Email</dt>
+          <dd>{u.email || "—"}</dd>
+        </div>
+        <div>
+          <dt>Ingresa con</dt>
+          <dd>{PROVEEDOR[u.provider] ?? u.provider ?? "—"}</dd>
+        </div>
+        <div>
+          <dt>Último ingreso</dt>
+          <dd>{u.lastSignIn ? fechaHora(u.lastSignIn) : "Nunca"}</dd>
+        </div>
+        <div>
+          <dt>Fecha de alta</dt>
+          <dd>{fecha(u.createdAt)}</dd>
+        </div>
+        <div>
+          <dt>Notificaciones</dt>
+          <dd>{u.hasPush ? "Activadas" : "Sin activar"}</dd>
+        </div>
+      </dl>
+      <h4>Actividad</h4>
+      <dl className="ap-ajustes">
+        <div>
+          <dt>Grupos a los que pertenece</dt>
+          <dd>{u.groupCount}</dd>
+        </div>
+        <div>
+          <dt>Ítems en su lista</dt>
+          <dd>{u.itemCount}</dd>
+        </div>
+      </dl>
+      <h4>Grupos</h4>
+      {grupos.length === 0 ? (
+        <p className="ad-vacio">No pertenece a ningún grupo.</p>
+      ) : (
+        <ul className="ap-miembros">
+          {grupos.map((g) => (
+            <li key={g.id}>
+              <span className="ap-emoji ap-emoji-s">{g.emoji || "🎁"}</span>
+              <span className="ap-g-nombre">
+                {g.name}
+                {g.ownerId !== u.id && <small>de {cap(g.ownerName)}</small>}
+              </span>
+              <em className="ap-g-der">
+                <span>
+                  {g.itemCount} {g.itemCount === 1 ? "ítem" : "ítems"}
+                </span>
+                {g.ownerId === u.id && <i>Dueño</i>}
+              </em>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  );
+}
+
 function Usuarios({ data, q }) {
+  const ahora = useMemo(() => Date.now(), [data]);
+  const [vista, setVista] = useState("todos");
+  const [orden, setOrden] = useState("ingreso");
+  const [sel, setSel] = useState(null);
+  const cerrar = useCallback(() => setSel(null), []);
+  const cumple = (u, v) => {
+    const activo = u.lastSignIn != null && ahora - u.lastSignIn < 7 * DIA;
+    return v === "todos" || (v === "activos" ? activo : !activo);
+  };
+  const total = (v) => data.users.filter((u) => cumple(u, v)).length;
   const filas = data.users
     .filter((u) => `${u.displayName} ${u.email} ${u.username}`.toLowerCase().includes(q))
-    .sort((a, b) => (b.lastSignIn ?? 0) - (a.lastSignIn ?? 0));
+    .filter((u) => cumple(u, vista))
+    .sort(ORDEN_USUARIOS[orden]);
+  const elegido = sel && data.users.find((u) => u.id === sel);
+
   return (
-    <div className="ad-tabla-wrap">
-      <table className="ad-tabla">
-        <thead>
-          <tr>
-            <th>Usuario</th>
-            <th>Email</th>
-            <th>Último ingreso</th>
-            <th>Alta</th>
-            <th>Grupos</th>
-            <th>Ítems</th>
-            <th>Push</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filas.map((u) => (
-            <tr key={u.id}>
-              <td>
-                <b>{u.displayName || "—"}</b>
-                {u.username && <small> @{u.username}</small>}
-                {u.disabled && <span className="ad-tag ad-tag-mal">deshabilitado</span>}
-              </td>
-              <td>{u.email}</td>
-              <td>{fechaHora(u.lastSignIn)}</td>
-              <td>{fecha(u.createdAt)}</td>
-              <td>{u.groupCount}</td>
-              <td>{u.itemCount}</td>
-              <td>{u.hasPush ? "Sí" : "No"}</td>
-            </tr>
+    <>
+      <div className="ap-barra">
+        <div className="ap-segmentos" role="tablist">
+          {[["todos", "Todos"], ["activos", "Activos (7 días)"], ["inactivos", "Inactivos"]].map(([k, n]) => (
+            <button type="button" key={k} className={vista === k ? "on" : ""} onClick={() => setVista(k)}>
+              {n}
+              <small>{total(k)}</small>
+            </button>
           ))}
-        </tbody>
-      </table>
-      {filas.length === 0 && <p className="ad-vacio">Sin resultados.</p>}
-    </div>
+        </div>
+        <select className="ap-select" value={orden} onChange={(e) => setOrden(e.target.value)} aria-label="Ordenar">
+          <option value="ingreso">Último ingreso</option>
+          <option value="alta">Más nuevos</option>
+          <option value="items">Más ítems</option>
+          <option value="nombre">Nombre</option>
+        </select>
+      </div>
+      <div className="ap-usuarios">
+        <div className="ap-u-cab" aria-hidden="true">
+          <span />
+          <span>Usuario</span>
+          <span>Ingresa con</span>
+          <span>Último ingreso</span>
+          <span>Grupos</span>
+          <span>Ítems</span>
+          <span />
+        </div>
+        {filas.map((u) => {
+          const nombre = cap(u.displayName) || u.email;
+          return (
+            <button type="button" className="ap-u" key={u.id} onClick={() => setSel(u.id)}>
+              <Foto m={{ photoURL: u.photoURL, name: nombre }} grande />
+              <span className="ap-u-quien">
+                <b>
+                  {nombre}
+                  {u.disabled && <span className="ap-u-mal">Deshabilitado</span>}
+                </b>
+                <small>{u.username ? `@${u.username}` : u.email}</small>
+              </span>
+              <span className="ap-u-prov">{PROVEEDOR[u.provider] ?? u.provider ?? "—"}</span>
+              <span className="ap-u-ing">{hace(u.lastSignIn, ahora)}</span>
+              <span className="ap-u-num">{u.groupCount}</span>
+              <span className="ap-u-num">{u.itemCount}</span>
+              <ChevronRight size={16} className="ap-flecha" />
+            </button>
+          );
+        })}
+        {filas.length === 0 && <p className="ad-vacio">Sin resultados.</p>}
+      </div>
+      {elegido && <DetalleUsuario u={elegido} data={data} onClose={cerrar} />}
+    </>
   );
 }
 
@@ -222,7 +343,7 @@ function DetalleGrupo({ g, data, onClose }) {
   const items = data.items.filter((i) => i.groupIds.includes(g.id));
 
   return (
-    <Modal titulo={g.name} sub={`Creado por ${g.ownerName}`} icono={<span className="ap-emoji">{g.emoji || "🎁"}</span>} onClose={onClose}>
+    <Modal titulo={g.name} sub={`Creado por ${cap(g.ownerName)}`} icono={<span className="ap-emoji">{g.emoji || "🎁"}</span>} onClose={onClose}>
           <dl className="ap-datos">
             <div>
               <dt>Creado</dt>
@@ -247,7 +368,7 @@ function DetalleGrupo({ g, data, onClose }) {
             {g.members.map((m) => (
               <li key={m.id}>
                 <Foto m={m} />
-                <span>{m.name}</span>
+                <span>{cap(m.name)}</span>
                 {m.id === g.ownerId && <em>Dueño</em>}
               </li>
             ))}
@@ -378,7 +499,7 @@ function Listas({ data, q }) {
       {duenos.map((u) => {
         const items = porDueno.get(u.id);
         const open = abierto === u.id;
-        const nombre = u.displayName || u.email;
+        const nombre = cap(u.displayName) || u.email;
         return (
           <section className={`ap-grupo ap-lista ${open ? "abierto" : ""}`} key={u.id}>
             <button type="button" className="ap-cabecera" onClick={() => setAbierto(open ? null : u.id)} aria-expanded={open}>
@@ -418,7 +539,7 @@ function Listas({ data, q }) {
         items={elegida ? porDueno.get(elegida.id) : duenos.flatMap((u) => porDueno.get(u.id))}
         listas={elegida ? 1 : duenos.length}
         grupoNombre={grupoNombre}
-        titulo={elegida ? `Lista ${(elegida.displayName || elegida.email).split(/[\s@]/)[0]}` : null}
+        titulo={elegida ? `Lista ${cap(elegida.displayName || elegida.email).split(/[\s@]/)[0]}` : null}
         onTodas={() => setAbierto(null)}
       />
       </div>
@@ -464,7 +585,7 @@ function Grupos({ data, q }) {
           <option value="">Todos los dueños</option>
           {duenos.map(([id, n]) => (
             <option key={id} value={id}>
-              {n}
+              {cap(n)}
             </option>
           ))}
         </select>
@@ -484,7 +605,7 @@ function Grupos({ data, q }) {
               </span>
               <div>
                 <h3>{g.name}</h3>
-                <small>{g.ownerName}</small>
+                <small>{cap(g.ownerName)}</small>
               </div>
             </header>
             <div className="ap-cifras">
