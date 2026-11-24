@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
-import { Gift, LayoutDashboard, LogOut, RefreshCw, Users, UsersRound } from "lucide-react";
+import { ChevronRight, Gift, LayoutDashboard, LogOut, RefreshCw, Users, UsersRound } from "lucide-react";
 import { auth, firebaseConfigurado, functions, googleProvider } from "../firebase";
 import "./admin.css";
 
@@ -18,6 +18,10 @@ const ESTADO_RESERVA = { reserved: "Reservado", purchased: "Comprado", released:
 const fecha = (ms) => (ms ? new Date(ms).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" }) : "—");
 const fechaHora = (ms) =>
   ms ? new Date(ms).toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Nunca";
+const corto = (t) => {
+  const p = t.split(/\s+/);
+  return p.length > 4 ? `${p.slice(0, 4).join(" ").replace(/[,|\-–:;.]+$/, "")}…` : t;
+};
 const plata = (n, moneda) => (n == null ? "—" : `${moneda || ""} ${n.toLocaleString("es-AR")}`.trim());
 
 function Stat({ label, valor, nota }) {
@@ -141,12 +145,14 @@ function Usuarios({ data, q }) {
 
 function Listas({ data, q }) {
   const [abierto, setAbierto] = useState(null);
+  const [vista, setVista] = useState("activos");
   const grupoNombre = useMemo(() => new Map(data.groups.map((g) => [g.id, g.name])), [data.groups]);
   const porDueno = useMemo(() => {
     const m = new Map();
-    for (const i of data.items) m.set(i.ownerId, [...(m.get(i.ownerId) ?? []), i]);
+    for (const i of data.items) if (vista === "todos" || (vista === "archivados") === i.isArchived) m.set(i.ownerId, [...(m.get(i.ownerId) ?? []), i]);
     return m;
-  }, [data.items]);
+  }, [data.items, vista]);
+  const total = (v) => data.items.filter((i) => v === "todos" || (v === "archivados") === i.isArchived).length;
   const duenos = data.users
     .filter((u) => porDueno.has(u.id))
     .filter((u) => `${u.displayName} ${u.email}`.toLowerCase().includes(q))
@@ -154,44 +160,62 @@ function Listas({ data, q }) {
 
   return (
     <div className="ad-lista">
+      <div className="ap-segmentos" role="tablist">
+        {[["activos", "Activos"], ["archivados", "Archivados"], ["todos", "Todos"]].map(([k, n]) => (
+          <button type="button" key={k} className={vista === k ? "on" : ""} onClick={() => setVista(k)}>
+            {n}
+            <small>{total(k)}</small>
+          </button>
+        ))}
+      </div>
       {duenos.map((u) => {
         const items = porDueno.get(u.id);
         const open = abierto === u.id;
         return (
-          <div className="ad-card ad-acordeon" key={u.id}>
-            <button type="button" onClick={() => setAbierto(open ? null : u.id)} aria-expanded={open}>
-              <span>
-                <b>{u.displayName || u.email}</b> <small>{u.email}</small>
+          <section className={`ap-grupo ${open ? "abierto" : ""}`} key={u.id}>
+            <button type="button" className="ap-cabecera" onClick={() => setAbierto(open ? null : u.id)} aria-expanded={open}>
+              <span className="ap-avatar">{(u.displayName || u.email || "?").charAt(0).toUpperCase()}</span>
+              <span className="ap-quien">
+                <b>Lista {(u.displayName || u.email).split(/[\s@]/)[0]}</b>
               </span>
-              <span className="ad-tag">{items.length} ítems</span>
+              <span className="ap-cuenta">{items.length}</span>
+              <ChevronRight size={18} className="ap-flecha" />
             </button>
             {open && (
-              <ul>
-                {items.map((i) => (
-                  <li key={i.id} className={i.isArchived ? "ad-arch" : ""}>
-                    <span>
-                      {i.link ? (
-                        <a href={i.link} target="_blank" rel="noreferrer noopener">
-                          {i.name}
-                        </a>
+              <ul className="ap-filas">
+                {items.map((i) => {
+                  const detalle = [
+                    PRIORIDAD[i.priority] ?? i.priority,
+                    ...i.groupIds.map((g) => grupoNombre.get(g) ?? "Grupo borrado"),
+                    i.isArchived ? "Archivado" : null,
+                  ].filter(Boolean);
+                  const nombre = i.link ? (
+                    <a href={i.link} target="_blank" rel="noreferrer noopener" title={i.name}>
+                      {corto(i.name)}
+                    </a>
+                  ) : (
+                    <span title={i.name}>{corto(i.name)}</span>
+                  );
+                  return (
+                    <li key={i.id}>
+                      {i.imageURL ? (
+                        <img src={i.imageURL} alt="" loading="lazy" referrerPolicy="no-referrer" />
                       ) : (
-                        i.name
+                        <span className="ap-sinfoto">
+                          <Gift size={20} />
+                        </span>
                       )}
-                      <small>
-                        {" "}
-                        · {PRIORIDAD[i.priority] ?? i.priority}
-                        {i.isArchived && " · archivado"}
-                        {i.groupIds.length > 0
-                          ? ` · ${i.groupIds.map((g) => grupoNombre.get(g) ?? "grupo borrado").join(", ")}`
-                          : " · solo lista propia"}
-                      </small>
-                    </span>
-                    <span>{plata(i.price, i.currency)}</span>
-                  </li>
-                ))}
+                      <div className="ap-texto">
+                        {nombre}
+                        <small>{detalle.join(" · ")}</small>
+                      </div>
+                      <span className="ap-precio">{plata(i.price, i.currency)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </div>
+          </section>
         );
       })}
       {duenos.length === 0 && <p className="ad-vacio">Sin resultados.</p>}
@@ -304,7 +328,6 @@ function Panel({ user }) {
         <header className="pn-top">
           <div>
             <h1>{titulo}</h1>
-            <small>{data ? `Actualizado ${fechaHora(data.generatedAt)}` : "Cargando datos"}</small>
           </div>
           <div className="pn-acciones">
             {tab !== "resumen" && (
@@ -329,7 +352,6 @@ function Panel({ user }) {
         {data && tab === "listas" && <Listas data={data} q={ql} />}
         {data && tab === "grupos" && <Grupos data={data} q={ql} />}
 
-        <p className="ad-pie">Las reservas se muestran solo como cantidades: nunca quién reservó qué.</p>
       </main>
     </div>
   );
