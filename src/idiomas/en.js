@@ -6,6 +6,8 @@ export default {
     privacidad: "Privacy",
     terminos: "Terms",
     descargar: "Download",
+    ingresar: "Log in",
+    panel: "Dashboard",
   },
   hero: {
     pill: "Gift list app",

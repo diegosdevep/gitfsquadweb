@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import Footer from "./components/Footer";
 import Nav from "./components/Nav";
 import Home from "./pages/Home";
 import Privacidad from "./pages/Privacidad";
 import Terminos from "./pages/Terminos";
+
+const AdminPage = lazy(() => import("./admin/AdminPage"));
 
 function ScrollAlTope() {
   const { pathname, hash } = useLocation();
@@ -17,6 +19,16 @@ function ScrollAlTope() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
+
+  if (pathname.startsWith("/admin")) {
+    return (
+      <Suspense fallback={null}>
+        <AdminPage />
+      </Suspense>
+    );
+  }
+
   return (
     <>
       <ScrollAlTope />
