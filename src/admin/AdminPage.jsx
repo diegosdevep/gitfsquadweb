@@ -646,6 +646,7 @@ function Panel({ user }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
+  const [denegado, setDenegado] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -654,11 +655,12 @@ function Panel({ user }) {
       const res = await httpsCallable(functions, "adminOverview")();
       setData(res.data);
     } catch (e) {
-      setError(
-        e.code === "functions/permission-denied"
-          ? "Esta cuenta no tiene permiso para ver el panel."
-          : `No se pudieron cargar los datos (${e.code}).`
-      );
+      if (e.code === "functions/permission-denied") {
+        setDenegado(true);
+        signOut(auth).finally(() => window.location.replace("/"));
+        return;
+      }
+      setError(`No se pudieron cargar los datos (${e.code}).`);
     } finally {
       setCargando(false);
     }
@@ -670,6 +672,8 @@ function Panel({ user }) {
 
   const ql = q.trim().toLowerCase();
   const titulo = TABS.find(([id]) => id === tab)[1];
+
+  if (denegado || (!data && !error)) return <p className="ad-vacio ad-centro">{denegado ? "" : "Cargando"}</p>;
 
   return (
     <div className="pn">
