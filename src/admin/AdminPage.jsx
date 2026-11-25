@@ -711,7 +711,7 @@ function Panel({ user }) {
 
         <div className="pn-user">
           <span title={user.email}>{user.email}</span>
-          <button type="button" onClick={() => signOut(auth)}>
+          <button type="button" onClick={() => signOut(auth).finally(() => window.location.replace("/"))}>
             <LogOut size={16} strokeWidth={2.2} />
             Salir
           </button>
