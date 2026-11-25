@@ -320,8 +320,13 @@ function Modal({ titulo, sub, icono, onClose, children }) {
   }, [onClose]);
 
   return (
-    <div className="ap-fondo" onClick={onClose}>
-      <div className="ap-modal" role="dialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.stopPropagation()}>
+    <div
+      className="ap-fondo"
+      role="presentation"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
+    >
+      <div className="ap-modal" role="dialog" aria-modal="true" aria-label={titulo}>
         <header>
           {icono}
           <div>
