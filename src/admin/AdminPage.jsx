@@ -35,10 +35,10 @@ const plata = (n, moneda) => (n == null ? "—" : `${moneda || ""} ${n.toLocaleS
 
 function Stat({ label, valor, nota }) {
   return (
-    <div className="ad-stat">
-      <span className="ad-stat-n">{valor}</span>
-      <span className="ad-stat-l">{label}</span>
-      {nota && <span className="ad-stat-note">{nota}</span>}
+    <div className="pl-stat">
+      <span className="pl-stat-n">{valor}</span>
+      <span className="pl-stat-l">{label}</span>
+      {nota && <span className="pl-stat-note">{nota}</span>}
     </div>
   );
 }
@@ -47,14 +47,14 @@ function Barras({ titulo, datos, etiquetas = {} }) {
   const filas = Object.entries(datos || {});
   const max = Math.max(1, ...filas.map(([, v]) => v));
   return (
-    <section className="ad-card">
+    <section className="pl-card">
       <h3>{titulo}</h3>
-      {filas.length === 0 && <p className="ad-vacio">Sin datos.</p>}
+      {filas.length === 0 && <p className="pl-vacio">Sin datos.</p>}
       {filas.map(([k, v]) => (
-        <div className="ad-bar" key={k}>
+        <div className="pl-bar" key={k}>
           <span>{etiquetas[k] ?? k}</span>
-          <div className="ad-bar-track">
-            <div className="ad-bar-fill" style={{ width: `${(v / max) * 100}%` }} />
+          <div className="pl-bar-track">
+            <div className="pl-bar-fill" style={{ width: `${(v / max) * 100}%` }} />
           </div>
           <b>{v}</b>
         </div>
@@ -77,7 +77,7 @@ function Resumen({ data }) {
 
   return (
     <>
-      <div className="ad-grid">
+      <div className="pl-grid">
         <Stat label="Usuarios" valor={s.users} />
         <Stat label="Activos 24 h" valor={s.activeLast1d} />
         <Stat label="Activos 7 días" valor={s.activeLast7d} />
@@ -91,18 +91,18 @@ function Resumen({ data }) {
         <Stat label="Amigo Invisible" valor={s.secretSantaEvents} nota="eventos" />
       </div>
 
-      <section className="ad-card">
+      <section className="pl-card">
         <h3>Altas por día · últimos 30 días</h3>
-        <div className="ad-spark" role="img" aria-label="Altas por día">
+        <div className="pl-spark" role="img" aria-label="Altas por día">
           {altas.map(([d, v]) => (
-            <div key={d} className="ad-spark-col" title={`${d}: ${v}`}>
+            <div key={d} className="pl-spark-col" title={`${d}: ${v}`}>
               <div style={{ height: `${(v / maxAlta) * 100}%` }} />
             </div>
           ))}
         </div>
       </section>
 
-      <div className="ad-cols">
+      <div className="pl-cols">
         <Barras titulo="Ítems por prioridad" datos={s.itemsByPriority} etiquetas={PRIORIDAD} />
         <Barras titulo="Reservas por estado" datos={s.reservationsByStatus} etiquetas={ESTADO_RESERVA} />
         <Barras titulo="Amigo Invisible por estado" datos={s.secretSantaByStatus} />
@@ -176,7 +176,7 @@ function DetalleUsuario({ u, data, onClose }) {
       </dl>
       <h4>Grupos</h4>
       {grupos.length === 0 ? (
-        <p className="ad-vacio">No pertenece a ningún grupo.</p>
+        <p className="pl-vacio">No pertenece a ningún grupo.</p>
       ) : (
         <ul className="ap-miembros">
           {grupos.map((g) => (
@@ -265,7 +265,7 @@ function Usuarios({ data, q }) {
             </button>
           );
         })}
-        {filas.length === 0 && <p className="ad-vacio">Sin resultados.</p>}
+        {filas.length === 0 && <p className="pl-vacio">Sin resultados.</p>}
       </div>
       {elegido && <DetalleUsuario u={elegido} data={data} onClose={cerrar} />}
     </>
@@ -381,7 +381,7 @@ function DetalleGrupo({ g, data, onClose }) {
 
           <h4>Ítems</h4>
           {items.length === 0 ? (
-            <p className="ad-vacio">Este grupo todavía no tiene ítems.</p>
+            <p className="pl-vacio">Este grupo todavía no tiene ítems.</p>
           ) : (
             <ul className="ap-filas ap-filas-modal">
               {items.map((i) => (
@@ -488,7 +488,7 @@ function Listas({ data, q }) {
   const elegida = duenos.find((u) => u.id === abierto);
 
   return (
-    <div className="ad-lista">
+    <div className="pl-lista">
       <div className="ap-barra">
         <div className="ap-segmentos" role="tablist">
           {[["activos", "Activos"], ["archivados", "Archivados"], ["todos", "Todos"]].map(([k, n]) => (
@@ -539,7 +539,7 @@ function Listas({ data, q }) {
         );
       })}
       </div>
-      {duenos.length === 0 && <p className="ad-vacio">Sin resultados.</p>}
+      {duenos.length === 0 && <p className="pl-vacio">Sin resultados.</p>}
       <ResumenListas
         items={elegida ? porDueno.get(elegida.id) : duenos.flatMap((u) => porDueno.get(u.id))}
         listas={elegida ? 1 : duenos.length}
@@ -636,7 +636,7 @@ function Grupos({ data, q }) {
             </footer>
           </article>
         ))}
-        {grupos.length === 0 && <p className="ad-vacio">Sin resultados.</p>}
+        {grupos.length === 0 && <p className="pl-vacio">Sin resultados.</p>}
       </div>
       {sel && data.groups.find((g) => g.id === sel) && (
         <DetalleGrupo g={data.groups.find((g) => g.id === sel)} data={data} onClose={cerrar} />
@@ -678,7 +678,7 @@ function Panel({ user }) {
   const ql = q.trim().toLowerCase();
   const titulo = TABS.find(([id]) => id === tab)[1];
 
-  if (denegado || (!data && !error)) return <p className="ad-vacio ad-centro">{denegado ? "" : "Cargando"}</p>;
+  if (denegado || (!data && !error)) return <p className="pl-vacio pl-centro">{denegado ? "" : "Cargando"}</p>;
 
   return (
     <div className="pn">
@@ -740,7 +740,7 @@ function Panel({ user }) {
           </div>
         </header>
 
-        {error && <p className="ad-error">{error}</p>}
+        {error && <p className="pl-error">{error}</p>}
         {data && tab === "resumen" && <Resumen data={data} />}
         {data && tab === "usuarios" && <Usuarios data={data} q={ql} />}
         {data && tab === "listas" && <Listas data={data} q={ql} />}
@@ -781,7 +781,7 @@ export default function AdminPage() {
     }
   };
 
-  if (user === undefined) return <p className="ad-vacio ad-centro">Cargando</p>;
+  if (user === undefined) return <p className="pl-vacio pl-centro">Cargando</p>;
 
   if (!user) {
     return (
@@ -792,7 +792,7 @@ export default function AdminPage() {
           <p className="lg-sub">Ingresá con tu cuenta de Google autorizada.</p>
 
           {!firebaseConfigurado ? (
-            <p className="ad-error">Falta la configuración de Firebase (variables VITE_FIREBASE_*).</p>
+            <p className="pl-error">Falta la configuración de Firebase (variables VITE_FIREBASE_*).</p>
           ) : (
             <button type="button" className="lg-google" onClick={entrar}>
               <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
@@ -804,7 +804,7 @@ export default function AdminPage() {
               Entrar con Google
             </button>
           )}
-          {error && <p className="ad-error">{error}</p>}
+          {error && <p className="pl-error">{error}</p>}
         </section>
 
         <a className="lg-volver" href="/">
